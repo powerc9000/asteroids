@@ -1,0 +1,205 @@
+<html>
+<head>
+	<link rel="stylesheet" type="text/css" href="css/bootstrap.min.css">
+	<title>Asteriods</title>
+</head>
+<body>
+<script type="text/javascript" src="js/moustrap.js"></script>
+<script type="text/javascript">
+(function(){
+	var canvas = document.createElement("canvas"),
+	ctx = canvas.getContext("2d"),
+	ship = {
+		x: 250,
+		y: 250,
+		speed: 10,
+		angle: 0,
+		vx: 0,
+		vy: 0,
+		rotate_speed: 200,
+		canShoot: true,
+		//width:32,
+		//height:32
+	},
+	asteriods = [],
+	asteriod = function(values){
+		var a = Object.create(asteriod.prototype);
+		for(i  in values){
+			a[i] = values[i];
+		}
+		return a;
+	},
+	bullets = [],
+	bullet = function(values){
+		b = Object.create(bullet.prototype);
+		for(i  in values){
+			b[i] = values[i];
+		}
+		return b;
+	},
+	keysDown = {},
+	friction = .99,
+	loader,
+	images_loaded = false;
+
+	asteriod.prototype = {
+		speed:200,
+		vx:0,
+		vy:0
+	};
+
+	bullet.prototype = {
+		speed:500,
+		width:5,
+		height:5
+	}
+
+	document.body.appendChild(canvas);
+	canvas.width = 500;
+	canvas.height = 500;
+	//loader function to load all nessisary images
+	loader = function(images){
+		var timeout;
+		loaded = 0;
+		total = 0;
+		images.forEach(function(image){
+			var img, imgs;
+			imgs = image[1];
+			image[0].images = {};
+			for(i in imgs){
+				total += 1;
+				img = new Image();
+				img.src = imgs[i]
+				img.onload = function(){
+					image[0].images[i] = img;
+					image[2](img);
+					loaded += 1;
+				}
+			}
+		});
+		timeout = setInterval(function(){
+			if(total === loaded){
+				images_loaded = true;
+				
+				clearInterval(timeout);
+			}
+		},1);
+	}
+	loader([[ship,{main:"img/ship.png"},function(img){ship.width = img.width; ship.height = img.height}]])
+	//direction bindings
+	//top
+	Mousetrap.bind("up", function(){
+		keysDown.up = true
+	}, 'keydown');
+	Mousetrap.bind("up", function(){
+		delete keysDown.up
+	}, 'keyup');
+	//right
+	Mousetrap.bind("right", function(){
+		keysDown.right = true
+	}, 'keydown');
+	Mousetrap.bind("right", function(){
+		delete keysDown.right
+	}, 'keyup');
+	//left
+	Mousetrap.bind("left", function(){
+		keysDown.left = true
+	}, 'keydown');
+	Mousetrap.bind("left", function(){
+		delete keysDown.left
+	}, 'keyup');
+
+	Mousetrap.bind("space", function(){
+		keysDown.space = true
+	}, 'keydown');
+	Mousetrap.bind("space", function(){
+		delete keysDown.space
+	}, 'keyup');
+
+	var update = function(modifier){
+		if(keysDown.up){
+			ship.vx += Math.sin(ship.angle * (Math.PI/180)) * (ship.speed * modifier)/2;
+			ship.vy -= Math.cos(ship.angle * (Math.PI/180)) * (ship.speed * modifier)/2;
+		}
+		else{
+			ship.vx *= friction;
+			ship.vy *= friction;
+		}
+		if(keysDown.right){
+			ship.angle += ship.rotate_speed * modifier;
+		}
+		if(keysDown.left){
+			ship.angle -= ship.rotate_speed * modifier;
+		}
+		if(keysDown.space){
+			if(ship.canShoot){
+				bullets.push(bullet({
+					x: ship.x + ship.width/2, 
+					y: ship.y + ship.height/2,
+					vx: Math.sin(ship.angle * (Math.PI/180)) * (bullet.prototype.speed * .01),
+					vy: -(Math.cos(ship.angle * (Math.PI/180)) * (bullet.prototype.speed * .01))
+				}))
+				ship.canShoot = false;
+				setTimeout(function(){
+					ship.canShoot = true
+				}, 250);
+			}
+			
+			
+		}
+		bullets.forEach(function(bullet){
+			bullet.x += bullet.vx;
+			bullet.y += bullet.vy;
+		});
+		ship.x += ship.vx;
+		ship.y += ship.vy;
+		if(ship.x > canvas.width){
+			ship.x = 0;
+		}
+		if(ship.y > canvas.height){
+			ship.y = 0;
+		}
+		if(ship.x < 0 ){
+			ship.x = canvas.width;
+		}
+		if(ship.y < 0){
+			ship.y = canvas.height;
+		}
+
+	}
+	var render = function(){
+		ctx.fillStyle = "rgb(0,0,0)";
+ 		ctx.fillRect(0,0,canvas.width,canvas.height);
+
+ 		bullets.forEach(function(bullet){
+ 			//console.log(bullet)
+ 			ctx.fillStyle = "white";
+ 			ctx.fillRect(bullet.x,bullet.y,bullet.width,bullet.height);
+ 		});
+
+   		ctx.save();
+   		ctx.translate(ship.x + (ship.width / 2), ship.y + (ship.height / 2));
+   		ctx.rotate(ship.angle * Math.PI/180);
+   		ctx.drawImage(ship.images.main, 0 - ship.width / 2, 0 - ship.height / 2);
+   		ctx.restore();
+ 		
+
+ 		
+
+ 		
+	}
+	
+	var main = function(){
+		now = Date.now();
+		delta = (now - then)/1000
+		update(delta);
+		render();
+		then = now;
+	}
+	then = Date.now();
+	setInterval(main,1);
+})();
+</script>
+</body>
+
+</html>
