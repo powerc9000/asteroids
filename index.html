@@ -10,8 +10,8 @@
 	var canvas = document.createElement("canvas"),
 	ctx = canvas.getContext("2d"),
 	ship = {
-		x: 250,
-		y: 250,
+		x: 250 - 16,
+		y: 250 - 16,
 		speed: 10,
 		angle: 0,
 		vx: 0,
@@ -30,28 +30,38 @@
 		return a;
 	},
 	bullets = [],
-	bullet = function(values){
+	bullet = function(values,callback){
 		b = Object.create(bullet.prototype);
 		for(i  in values){
 			b[i] = values[i];
 		}
+		bullets.push(b)
 		return b;
 	},
+	randInt = function(min, max) {
+    	return Math.floor(Math.random() * (max - min + 1)) + min;
+	},
+	levels = [
+		{asteriods:3, started:false, finished:false},
+		{asteriods:5, started:false, finished:false},
+		{asteriods:7, started:false, finished:false}
+	],
+	current_level = 0,
 	keysDown = {},
-	friction = .99,
+	friction = .999,
 	loader,
 	images_loaded = false;
 
 	asteriod.prototype = {
-		speed:200,
-		vx:0,
-		vy:0
+		size:"large",
+		width:64,
+		height:64
 	};
 
 	bullet.prototype = {
-		speed:500,
-		width:5,
-		height:5
+		speed:300,
+		width:2,
+		height:2
 	}
 
 	document.body.appendChild(canvas);
@@ -60,32 +70,56 @@
 	//loader function to load all nessisary images
 	loader = function(images){
 		var timeout;
-		loaded = 0;
-		total = 0;
+		var loaded = 0;
+		var total = 0;
 		images.forEach(function(image){
 			var img, imgs;
-			imgs = image[1];
-			image[0].images = {};
+			imgs = image.images;
+			image.entity.images = {};
 			for(i in imgs){
-				total += 1;
-				img = new Image();
-				img.src = imgs[i]
-				img.onload = function(){
-					image[0].images[i] = img;
-					image[2](img);
-					loaded += 1;
+				if(imgs.hasOwnProperty(i)){
+					total += 1;
+					img = new Image();
+					img.src = imgs[i]
+					image.entity.images[i] = img;
+					img.onload = function(){
+						if(image.callback){
+							image.callback(img);
+						}
+						loaded += 1;
+					}
 				}
 			}
 		});
 		timeout = setInterval(function(){
 			if(total === loaded){
 				images_loaded = true;
-				
 				clearInterval(timeout);
 			}
+			
 		},1);
 	}
-	loader([[ship,{main:"img/ship.png"},function(img){ship.width = img.width; ship.height = img.height}]])
+	loader([
+			{
+				entity:ship,
+				images: {
+					main:"img/ship.png"
+				},
+				callback:function(img){
+					ship.width = img.width; ship.height = img.height;
+				}
+			},
+
+			{
+				entity:asteriod,
+				images: {
+					large:"img/asteriod_large.png",
+					medium: "img/asteriod_medium.png",
+					small: "img/asteriod_small.png"
+				}
+			}
+		]);
+
 	//direction bindings
 	//top
 	Mousetrap.bind("up", function(){
@@ -117,6 +151,25 @@
 	}, 'keyup');
 
 	var update = function(modifier){
+		if(!levels[current_level].started){
+			var i;
+			for(i=0; i < levels[current_level].asteriods; i+=1){
+				asteriods.push(asteriod(
+					{
+						vx: Math.sin(randInt(0,2*Math.PI)) * (randInt(15,25) * modifier),
+						vy: Math.cos(randInt(0,2*Math.PI)) * (randInt(15,25) * modifier),
+						x: randInt(0, canvas.width),
+						y: randInt(0,100)
+					}
+				));
+			}
+			levels[current_level].started = true;
+		}
+		else{
+			if(asteriods.length === 0){
+				current_level += 1;
+			}
+		}
 		if(keysDown.up){
 			ship.vx += Math.sin(ship.angle * (Math.PI/180)) * (ship.speed * modifier)/2;
 			ship.vy -= Math.cos(ship.angle * (Math.PI/180)) * (ship.speed * modifier)/2;
@@ -133,23 +186,42 @@
 		}
 		if(keysDown.space){
 			if(ship.canShoot){
-				bullets.push(bullet({
+				bullet({
 					x: ship.x + ship.width/2, 
 					y: ship.y + ship.height/2,
 					vx: Math.sin(ship.angle * (Math.PI/180)) * (bullet.prototype.speed * .01),
 					vy: -(Math.cos(ship.angle * (Math.PI/180)) * (bullet.prototype.speed * .01))
-				}))
+				})
 				ship.canShoot = false;
 				setTimeout(function(){
 					ship.canShoot = true
-				}, 250);
+				}, 200);
 			}
 			
 			
 		}
-		bullets.forEach(function(bullet){
+		bullets.forEach(function(bullet,index){
+			if(bullet.x > canvas.width || bullet.x < 0 || bullet.y > canvas.height || bullet.y < 0){
+				delete bullets[index];
+			}
 			bullet.x += bullet.vx;
 			bullet.y += bullet.vy;
+		});
+		asteriods.forEach(function(bullet,index){
+			bullet.x += bullet.vx;
+			bullet.y += bullet.vy;
+			if(bullet.x  > canvas.width){
+				bullet.x = 0;
+			}
+			if(bullet.y  > canvas.height){
+				bullet.y = 0;
+			}
+			if(bullet.x + bullet.width < 0 ){
+				bullet.x = canvas.width;
+			}
+			if(bullet.y + bullet.height < 0){
+				bullet.y = canvas.height;
+			}
 		});
 		ship.x += ship.vx;
 		ship.y += ship.vy;
@@ -176,26 +248,27 @@
  			ctx.fillStyle = "white";
  			ctx.fillRect(bullet.x,bullet.y,bullet.width,bullet.height);
  		});
-
+ 		asteriods.forEach(function(bullet){
+ 			ctx.fillStyle = "white";
+ 			ctx.drawImage(asteriod.images[bullet.size],bullet.x,bullet.y,bullet.width,bullet.height);
+ 		});
    		ctx.save();
    		ctx.translate(ship.x + (ship.width / 2), ship.y + (ship.height / 2));
    		ctx.rotate(ship.angle * Math.PI/180);
    		ctx.drawImage(ship.images.main, 0 - ship.width / 2, 0 - ship.height / 2);
    		ctx.restore();
- 		
-
- 		
-
- 		
 	}
 	
 	var main = function(){
-		now = Date.now();
-		delta = (now - then)/1000
-		update(delta);
-		render();
-		then = now;
+		if(images_loaded){
+			now = Date.now();
+			delta = (now - then)/1000
+			update(delta);
+			render();
+			then = now;
+		}
 	}
+	
 	then = Date.now();
 	setInterval(main,1);
 })();
