@@ -6,7 +6,7 @@
 <body>
 <script type="text/javascript" src="js/moustrap.js"></script>
 <script type="text/javascript">
-(function(){
+(function(window){
 	var canvas = document.createElement("canvas"),
 	ctx = canvas.getContext("2d"),
 	ship = {
@@ -41,11 +41,37 @@
 	randInt = function(min, max) {
     	return Math.floor(Math.random() * (max - min + 1)) + min;
 	},
+	intersects = function(ob1,ob2){
+            var x1, x2, y1, y2, w1, w2, h1, h2;
+            x1 = ob1.x;
+            x2 = ob2.x;
+            y1 = ob1.y;
+            y2 = ob2.y;
+            w1 = ob1.width;
+            w2 = ob2.width;
+            h1 = ob1.height;
+            h2 = ob2.height;
+            w1 += x1;
+            w2 += x2;
+
+            if(w2 < x1 || w1 < x2){
+                return false;
+            }
+
+            h1 += y1;
+            h2 += y2;
+
+            if(h2 < y1 || h1 < y2){
+                return false;
+            }
+            return true;
+        },
 	levels = [
 		{asteriods:3, started:false, finished:false},
 		{asteriods:5, started:false, finished:false},
 		{asteriods:7, started:false, finished:false}
 	],
+	gamestate = {gameOver:false},
 	current_level = 0,
 	keysDown = {},
 	friction = .999,
@@ -101,7 +127,7 @@
 	}
 	loader([
 			{
-				entity:ship,
+				entity: ship,
 				images: {
 					main:"img/ship.png"
 				},
@@ -111,7 +137,7 @@
 			},
 
 			{
-				entity:asteriod,
+				entity: asteriod,
 				images: {
 					large:"img/asteriod_large.png",
 					medium: "img/asteriod_medium.png",
@@ -156,8 +182,8 @@
 			for(i=0; i < levels[current_level].asteriods; i+=1){
 				asteriods.push(asteriod(
 					{
-						vx: Math.sin(randInt(0,2*Math.PI)) * (randInt(15,25) * modifier),
-						vy: Math.cos(randInt(0,2*Math.PI)) * (randInt(15,25) * modifier),
+						vx: Math.sin(randInt(0,2*Math.PI)) * (randInt(15,20) * modifier),
+						vy: Math.cos(randInt(0,2*Math.PI)) * (randInt(15,20) * modifier),
 						x: randInt(0, canvas.width),
 						y: randInt(0,100)
 					}
@@ -202,7 +228,7 @@
 		}
 		bullets.forEach(function(bullet,index){
 			if(bullet.x > canvas.width || bullet.x < 0 || bullet.y > canvas.height || bullet.y < 0){
-				delete bullets[index];
+				bullets.splice(index,1);
 			}
 			bullet.x += bullet.vx;
 			bullet.y += bullet.vy;
@@ -237,6 +263,49 @@
 		if(ship.y < 0){
 			ship.y = canvas.height;
 		}
+		//Test for collisions
+		
+			
+		asteriods.forEach(function(a, ai){
+			if(intersects(ship,a)){
+					gamestate.gameOver = true;
+				}
+			bullets.forEach(function(bullet, bi){ 
+				console.log(bullets.length)
+				var new_asteriods = {};
+				if(intersects(a,bullet)){
+					console.log(a.size)
+					if(a.size === "large"){
+						new_asteriods.loops = 2;
+						new_asteriods.size = "medium";
+					}
+					else if(a.size === "medium"){
+						new_asteriods.loops = 3;
+						new_asteriods.size = "small";
+					}
+					else if(a.size === "small"){
+						new_asteriods.loops = 0;
+						new_asteriods.size = "none";
+					}
+					var i;
+					for(i=0; i< new_asteriods.loops; i+=1){
+						asteriods.push(asteriod(
+						{
+							vx: Math.sin(randInt(0,2*Math.PI)) * (randInt(15,20) * modifier),
+							vy: Math.cos(randInt(0,2*Math.PI)) * (randInt(15,20) * modifier),
+							x: bullet.x + randInt(-5, 5), 
+							y: bullet.y + randInt(-5, 5),
+							width: asteriod.images[new_asteriods.size].width,
+							height: asteriod.images[new_asteriods.size].height,
+							size: new_asteriods.size
+						}
+					));
+					}
+					bullets.splice(bi,1);
+					asteriods.splice(ai,1);
+				}
+			});
+		});
 
 	}
 	var render = function(){
@@ -250,7 +319,7 @@
  		});
  		asteriods.forEach(function(bullet){
  			ctx.fillStyle = "white";
- 			ctx.drawImage(asteriod.images[bullet.size],bullet.x,bullet.y,bullet.width,bullet.height);
+ 			ctx.drawImage(asteriod.images[bullet.size],bullet.x,bullet.y,asteriod.images[bullet.size].width,asteriod.images[bullet.size].height);
  		});
    		ctx.save();
    		ctx.translate(ship.x + (ship.width / 2), ship.y + (ship.height / 2));
@@ -271,7 +340,8 @@
 	
 	then = Date.now();
 	setInterval(main,1);
-})();
+	window.gamestate = gamestate;
+})(window);
 </script>
 </body>
 
